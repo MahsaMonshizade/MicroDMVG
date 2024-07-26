@@ -63,5 +63,11 @@ for ep in range(n_epoch):
             loss_ema = 0.95 * loss_ema + 0.05 * loss.sum().item()
         pbar.set_description(f"loss: {loss_ema:.4f}")
         optim.step()
+        # Access gradients of model parameters
+        for name, param in ddpm.named_parameters():
+            if param.grad is not None:
+                print(f"Gradient for {name}: {param.grad.mean().item()} (mean), {param.grad.std().item()} (std)")
+            else:
+                print(f"No gradient for {name}")
     if (ep+1)%1000==0:
         torch.save(ddpm.state_dict(), f"./models/ddpm_{dataname}_view{view}_pairedrate{pairedrate}_fold{fold}_ep{ep+1}.pth")

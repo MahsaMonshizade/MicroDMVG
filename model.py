@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from torch.nn import init
 
 # %% [2]AE
 def Normalize(in_channels):
@@ -68,9 +69,14 @@ class Embed(nn.Module):
         self.input_dim = input_dim
         self.model = nn.Sequential(
             nn.Linear(input_dim, emb_dim),
-            nn.SiLU(),
+            nn.GELU(),
             nn.Linear(emb_dim, emb_dim),
         )
+    # def initialize(self):
+    #     for module in self.modules():
+    #         if isinstance(module, nn.Linear):
+    #             init.xavier_uniform_(module.weight)
+    #             init.zeros_(module.bias)
 
     def forward(self, x):
         return self.model(x.reshape(-1, self.input_dim))
@@ -83,16 +89,16 @@ class Autoencoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(n_feat, n_feat),   # Input layer to middle dimension
             nn.BatchNorm1d(n_feat),  # Batch normalization
-            nn.SiLU(),           # Activation function
+            nn.GELU(),           # Activation function
             nn.Linear(n_feat, 2*n_feat),   # Input layer to middle dimension
             nn.BatchNorm1d(2*n_feat),  # Batch normalization
-            nn.SiLU(),           # Activation function
+            nn.GELU(),           # Activation function
             nn.Linear(2*n_feat, 2**2 * n_feat),   # Input layer to middle dimension
             nn.BatchNorm1d(2**2 * n_feat),  # Batch normalization
-            nn.SiLU(),           # Activation function
+            nn.GELU(),           # Activation function
             nn.Linear(2**2 * n_feat, 2**3 * n_feat),  # Middle dimension to another feature dimension
             nn.BatchNorm1d(2**3 * n_feat), # Batch normalization
-            nn.SiLU(),           # Activation function
+            nn.GELU(),           # Activation function
         )
 
         self.vec2vec = nn.Linear(2**3 * n_feat + feature_dim, 2**3 * n_feat)
@@ -104,7 +110,8 @@ class Autoencoder(nn.Module):
         self.linear3 = nn.Linear(2**2 * n_feat, n_feat)
         # self.bn3 = nn.BatchNorm1d(n_feat)   # Batch normalization
 
-        self.relu = nn.SiLU()
+        self.relu = nn.ReLU()
+        self.gelu = nn.GELU()
         # self.sigmoid = nn.Sigmoid()
 
         temb = [Embed(1, 2**(i+1)*n_feat) for i in range(3)]
@@ -121,11 +128,11 @@ class Autoencoder(nn.Module):
 
         x = self.linear1(torch.cat([x, temb[2]], dim=1))
         x = self.bn1(x)  # Apply batch normalization
-        x = self.relu(x)
+        x = self.gelu(x)
         
         x = self.linear2(torch.cat([x, temb[1]], dim=1))
         x = self.bn2(x)  # Apply batch normalization
-        x = self.relu(x)
+        x = self.gelu(x)
         
         x = self.linear3(torch.cat([x, temb[0]], dim=1))
         # x = self.bn3(x)  # Apply batch normalization

@@ -8,12 +8,15 @@ from torch.utils.data import TensorDataset, DataLoader
 def get_data(dataname='carl', view=0):   
     if dataname=='carl':
        
-        dims=[128, 128, 128]
+        dims=[512, 512, 512]
         configs={}
         configs['dim_c']=sum(dims)-dims[view]
 
         # data=io.loadmat(f"./data/carl.mat")
         available_omics = io.loadmat(f"./available_omics.mat")['available_omics']
+        print('hi')
+        folds=io.loadmat(f"./data/carl_del_0.1.mat")['folds']
+        print(folds)
         x0=np.load(f"./data/AE_carl_view0.npy")
         x1=np.load(f"./data/AE_carl_view1.npy")
         x2=np.load(f"./data/AE_carl_view2.npy")
@@ -24,7 +27,8 @@ def get_data(dataname='carl', view=0):
         x2 = torch.tensor(x2, dtype=torch.float32)
         x=[x0,x1,x2]
 
-        mask = torch.tensor(available_omics)
+        # mask = torch.tensor(available_omics)
+        mask=torch.tensor(folds[0,0]).int()
         ind_train=mask[:,view]==1
         ind_test=mask[:,view]==0
 

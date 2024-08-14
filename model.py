@@ -89,116 +89,94 @@ class Autoencoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(n_feat, n_feat),   # Input layer to middle dimension
             nn.BatchNorm1d(n_feat),  # Batch normalization
-            nn.GELU(),           # Activation function
+            nn.SiLU(),            # Activation function
             nn.Linear(n_feat, 2*n_feat),   # Input layer to middle dimension
             nn.BatchNorm1d(2*n_feat),  # Batch normalization
-            nn.GELU(),           # Activation function
+            nn.SiLU(),            # Activation function
             nn.Linear(2*n_feat, 2**2 * n_feat),   # Input layer to middle dimension
             nn.BatchNorm1d(2**2 * n_feat),  # Batch normalization
-            nn.GELU(),           # Activation function
+            nn.SiLU(),            # Activation function
             nn.Linear(2**2 * n_feat, 2**3 * n_feat),  # Middle dimension to another feature dimension
             nn.BatchNorm1d(2**3 * n_feat), # Batch normalization
-            nn.GELU(),           # Activation function
+            nn.SiLU(),          # Activation function
+            nn.Linear(2**3 * n_feat, 2**3 * n_feat),  # Middle dimension to another feature dimension
+            nn.BatchNorm1d(2**3 * n_feat), # Batch normalization
+            nn.SiLU(),            # Activation function
+            nn.Linear(2**3 * n_feat, 2**3 * n_feat),  # Middle dimension to another feature dimension
+            nn.BatchNorm1d(2**3 * n_feat), # Batch normalization
+            nn.SiLU(),         # Activation function
+            nn.Linear(2**3 * n_feat, 2**3 * n_feat),  # Middle dimension to another feature dimension
+            nn.BatchNorm1d(2**3 * n_feat), # Batch normalization
+           nn.SiLU(),          # Activation function
         )
 
         self.vec2vec = nn.Linear(2**3 * n_feat + feature_dim, 2**3 * n_feat)
         self.bn = nn.BatchNorm1d(2**3 * n_feat)  # Batch normalization
-        self.linear1 = nn.Linear(2**4 * n_feat, 2**2 * n_feat)
+        self.linear1 = nn.Linear(2**4 * n_feat + 2*n_feat, 2**2 * n_feat)
         self.bn1 = nn.BatchNorm1d(2**2 * n_feat)  # Batch normalization
-        self.linear2 = nn.Linear(2**3 * n_feat, 2 * n_feat)
+        self.linear2 = nn.Linear(2**3 * n_feat + n_feat, 2 * n_feat)
         self.bn2 = nn.BatchNorm1d(2 * n_feat)  # Batch normalization
         self.linear3 = nn.Linear(2**2 * n_feat, n_feat)
         # self.bn3 = nn.BatchNorm1d(n_feat)   # Batch normalization
 
-        self.relu = nn.ReLU()
-        self.gelu = nn.GELU()
+        self.relu = nn.SiLU()
+        self.gelu = nn.ReLU()
         # self.sigmoid = nn.Sigmoid()
 
         temb = [Embed(1, 2**(i+1)*n_feat) for i in range(3)]
         self.temb = nn.ModuleList(temb)
     
     def forward(self, x, c, t):
-        temb = [self.temb[i](t)[:, :] for i in range(3)]
-        c = c.to(torch.float32)
-        x = self.encoder(x)
+        # temb = [self.temb[i](t)[:, :] for i in range(3)]
+        # c = c.to(torch.float32)
+        # x = self.encoder(x)
 
-        x = self.vec2vec(torch.cat([x, c], dim=1))
-        x = self.bn(x)  # Apply batch normalization
-        x = self.relu(x)
+        # x = self.vec2vec(torch.cat([x, c], dim=1))
+        # x = self.bn(x)  # Apply batch normalization
+        # x = self.relu(x)
 
-        x = self.linear1(torch.cat([x, temb[2]], dim=1))
-        x = self.bn1(x)  # Apply batch normalization
-        x = self.gelu(x)
-        
-        x = self.linear2(torch.cat([x, temb[1]], dim=1))
-        x = self.bn2(x)  # Apply batch normalization
-        x = self.gelu(x)
-        
-        x = self.linear3(torch.cat([x, temb[0]], dim=1))
-        # x = self.bn3(x)  # Apply batch normalization
+        # x = self.linear1(torch.cat([x, temb[2]], dim=1))
+        # x = self.bn1(x)  # Apply batch normalization
         # x = self.relu(x)
         
+        # x = self.linear2(torch.cat([x, temb[1]], dim=1))
+        # x = self.bn2(x)  # Apply batch normalization
+        # x = self.relu(x)
+        
+        # x = self.linear3(torch.cat([x, temb[0]], dim=1))
+        # # x = self.bn3(x)  # Apply batch normalization
+        # # x = self.relu(x)
+
+
+        temb = [self.temb[i](t)[:, :] for i in range(3)]
+        c = c.to(torch.float32)
+
+        # Encoder pass
+        x1 = self.encoder[0:3](x)  # First part of the encoder
+        x2 = self.encoder[3:6](x1) # Second part of the encoder
+        x3 = self.encoder[6:](x2)  # Third part of the encoder
+
+        # Skip connections
+        x = self.vec2vec(torch.cat([x3, c], dim=1))
+        x = self.bn(x)
+        x = self.relu(x)
+
+        x = self.linear1(torch.cat([x, x2, temb[2]], dim=1))  # Skip connection from x2
+        x = self.bn1(x)
+        x = self.relu(x)
+        
+        x = self.linear2(torch.cat([x, x1, temb[1]], dim=1))  # Skip connection from x1
+        x = self.bn2(x)
+        x = self.relu(x)
+        
+        x = self.linear3(torch.cat([x, temb[0]], dim=1))  # No skip connection needed here
+
         return x
+        
+        # return x
     
 
-# class Autoencoder(nn.Module):
-#     def __init__(self, n_feat, feature_dim):
-#         super(Autoencoder, self).__init__()
-#         # Encoder
-#         self.encoder = nn.Sequential(
-#             nn.Linear(n_feat, n_feat),   # Input layer to middle dimension
-#             nn.BatchNorm1d(n_feat),  # Batch normalization
-#             nn.SiLU(),           # Activation function
-#             nn.Linear(n_feat, 2*n_feat),   # Input layer to middle dimension
-#             nn.BatchNorm1d(2*n_feat),  # Batch normalization
-#             nn.SiLU(),           # Activation function
-#             nn.Linear(2*n_feat, 2**2 * n_feat),   # Input layer to middle dimension
-#             nn.BatchNorm1d(2**2 * n_feat),  # Batch normalization
-#             nn.SiLU(),           # Activation function
-#             nn.Linear(2**2 * n_feat, 2**3 * n_feat),  # Middle dimension to another feature dimension
-#             nn.BatchNorm1d(2**3 * n_feat), # Batch normalization
-#             nn.SiLU(),           # Activation function
-#         )
-
-#         self.vec2vec = nn.Linear(2**3 * n_feat, 2**3 * n_feat)
-#         self.bn = nn.BatchNorm1d(2**3 * n_feat)  # Batch normalization
-#         self.linear1 = nn.Linear(2**4 * n_feat, 2**2 * n_feat)
-#         self.bn1 = nn.BatchNorm1d(2**2 * n_feat)  # Batch normalization
-#         self.linear2 = nn.Linear(2**3 * n_feat, 2 * n_feat)
-#         self.bn2 = nn.BatchNorm1d(2 * n_feat)  # Batch normalization
-#         self.linear3 = nn.Linear(2**2 * n_feat, n_feat)
-#         # self.bn3 = nn.BatchNorm1d(n_feat)   # Batch normalization
-
-#         self.relu = nn.SiLU()
-        
-
-#         temb = [Embed(1, 2**(i+1)*n_feat) for i in range(3)]
-#         self.temb = nn.ModuleList(temb)
     
-#     def forward(self, x, c, t):
-#         temb = [self.temb[i](t)[:, :] for i in range(3)]
-#         c = c.to(torch.float32)
-#         x = self.encoder(x)
-        
-#         x = self.vec2vec(x)
-#         x = self.bn(x)  # Apply batch normalization
-#         x = self.relu(x)
-
-#         x = self.linear1(torch.cat([x, temb[2]], dim=1))
-#         x = self.bn1(x)  # Apply batch normalization
-#         x = self.relu(x)
-        
-#         x = self.linear2(torch.cat([x, temb[1]], dim=1))
-#         x = self.bn2(x)  # Apply batch normalization
-#         x = self.relu(x)
-        
-#         x = self.linear3(torch.cat([x, temb[0]], dim=1))
-#         # x = self.bn3(x)  # Apply batch normalization
-#         # x = self.relu(x)
-        
-#         return x
-    
-
 def ddpm_schedules(beta1, beta2, n_T):
     '''
     Returns pre-computed schedules for DDPM sampling, training process.
@@ -261,25 +239,22 @@ class DDPM(nn.Module):
 
         # return MSE between added noise, and our predicted noise
         noise_pre = self.nn_model(xt, c, _ts.view(-1,1) / self.n_T)
-        if epoch == 999:
-            print("xxxxxxxxx")
-            print(x)
-            print(x.min())
-            print(x.max())
-            print('noise')
-            print(noise)
-            print(noise.min())
-            print(noise.max())
-            print("xt")
-            print(xt)
-            print(xt.min())
-            print(xt.max())
-            print("noise_pre")
-            print(noise_pre)
-            print(noise_pre.min())
-            print(noise_pre.max())
+        # if epoch == 999:
+        #     print("xxxxxxxxx")
+        #     print(x)
+        #     print(x.min())
+        #     print(x.max())
+        #     print('noise')
+        #     print(noise)
+        #     print(noise.min())
+        #     print(noise.max())
+        #     print("xt")
+        #     print(xt)
+        #     print(xt.min())
+        #     print(xt.max())
+        #     print("noise_pre")
+        #     print(noise_pre)
+        #     print(noise_pre.min())
+        #     print(noise_pre.max())
         loss = self.loss_mse(noise, noise_pre)
         return loss
-
-
-# %%

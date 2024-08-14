@@ -25,10 +25,10 @@ fold=args.fold
 
 n_epoch=1000
 n_T=1000
-lrate=1e-4
+lrate=1e-3
 betas=(1e-6, 2e-2) # betas=(1e-4, 2e-2)
 drop_prob=0.1
-n_feat=128
+n_feat=512
 
 train_dataloader, test_dataloader, configs=get_data(dataname=dataname, view=view)
 
@@ -40,12 +40,16 @@ ddpm=ddpm.to(device)
 # net=torch.compile(net)
 optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
+milestones = [int(n_epoch * 0.25), int(n_epoch * 0.5), int(n_epoch * 0.75), int(n_epoch * 0.9)]
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optim, milestones=milestones, gamma=0.1)
+
+
 for ep in range(n_epoch):
     print(f'epoch {ep}')
 
     ddpm.train()  # training mode
     # linear lrate decay
-    optim.param_groups[0]['lr'] = lrate * (1 - ep / n_epoch)
+    # optim.param_groups[0]['lr'] = lrate * (1 - ep / n_epoch)
     pbar = tqdm(train_dataloader)
     loss_ema = None
     for x,c in pbar:
@@ -64,10 +68,11 @@ for ep in range(n_epoch):
         pbar.set_description(f"loss: {loss_ema:.4f}")
         optim.step()
         # Access gradients of model parameters
-        for name, param in ddpm.named_parameters():
-            if param.grad is not None:
-                print(f"Gradient for {name}: {param.grad.mean().item()} (mean), {param.grad.std().item()} (std)")
-            else:
-                print(f"No gradient for {name}")
+        # for name, param in ddpm.named_parameters():
+        #     if param.grad is not None:
+        #         print(f"Gradient for {name}: {param.grad.mean().item()} (mean), {param.grad.std().item()} (std)")
+        #     else:
+        #         print(f"No gradient for {name}")
+    scheduler.step()
     if (ep+1)%1000==0:
         torch.save(ddpm.state_dict(), f"./models/ddpm_{dataname}_view{view}_pairedrate{pairedrate}_fold{fold}_ep{ep+1}.pth")

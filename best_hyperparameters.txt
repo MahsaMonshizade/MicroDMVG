@@ -1,0 +1,8 @@
+Best Validation Loss: 0.1005
+Best Training Loss: 0.0607
+Best Epoch: 289
+Best Hyperparameters:
+  lrate: 0.005144873365865526
+  beta1: 3.485717753061664e-05
+  beta2: 0.11982053994525294
+  n_epoch: 688

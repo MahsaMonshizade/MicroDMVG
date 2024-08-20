@@ -207,7 +207,7 @@ def ddpm_schedules(beta1, beta2, n_T):
 
 
 class DDPM(nn.Module):
-    def __init__(self, nn_model, betas, n_T, device, drop_prob=0.1):
+    def __init__(self, nn_model, betas, n_T, device, drop_prob = 0.1):
         super().__init__()
         self.nn_model = nn_model.to(device)
 
@@ -218,7 +218,6 @@ class DDPM(nn.Module):
 
         self.n_T = n_T
         self.device = device
-        self.drop_prob = drop_prob
         self.loss_mse = nn.MSELoss(reduction='mean')
 
     def forward(self, x, c, epoch):
@@ -239,22 +238,27 @@ class DDPM(nn.Module):
 
         # return MSE between added noise, and our predicted noise
         noise_pre = self.nn_model(xt, c, _ts.view(-1,1) / self.n_T)
-        # if epoch == 999:
-        #     print("xxxxxxxxx")
-        #     print(x)
-        #     print(x.min())
-        #     print(x.max())
-        #     print('noise')
-        #     print(noise)
-        #     print(noise.min())
-        #     print(noise.max())
-        #     print("xt")
-        #     print(xt)
-        #     print(xt.min())
-        #     print(xt.max())
-        #     print("noise_pre")
-        #     print(noise_pre)
-        #     print(noise_pre.min())
-        #     print(noise_pre.max())
         loss = self.loss_mse(noise, noise_pre)
         return loss
+    
+    def ddpm_sample(self, c, n_sample, size, device):
+        batch = c.shape[0]
+        c=c.to(device)
+        xt=torch.randn(batch*n_sample, size).to(device)  # x_T ~ N(0, 1), sample initial noise
+        
+
+        for i in range(self.n_T, 0, -1):
+            print(f'\rsampling timestep {i}', end='')
+            ts = torch.tensor([i / self.n_T]).to(device)
+            ts = ts.repeat(batch * n_sample,)
+            z=torch.randn(xt.shape).to(device) if i > 1 else 0
+            print(xt.shape)
+            # print(z.shape)
+            print(ts.shape)
+            # split predictions and compute weighting
+            eps = self.nn_model(xt, c, ts)
+            xt = (
+                self.oneover_sqrta[i] * (xt - eps * self.mab_over_sqrtmab[i])
+                + self.sqrt_beta_t[i] * z
+                )
+        return xt

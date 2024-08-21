@@ -60,6 +60,11 @@ class AE(nn.Module):
         z = self.encoder(x)
         x_rec = self.decoder(z)
         return x_rec, z
+    
+    def forward_x_rec(self, z):
+         x_rec = self.decoder(z)
+         return x_rec
+
 
 
 # %% [3]diffusion
@@ -127,27 +132,6 @@ class Autoencoder(nn.Module):
         self.temb = nn.ModuleList(temb)
     
     def forward(self, x, c, t):
-        # temb = [self.temb[i](t)[:, :] for i in range(3)]
-        # c = c.to(torch.float32)
-        # x = self.encoder(x)
-
-        # x = self.vec2vec(torch.cat([x, c], dim=1))
-        # x = self.bn(x)  # Apply batch normalization
-        # x = self.relu(x)
-
-        # x = self.linear1(torch.cat([x, temb[2]], dim=1))
-        # x = self.bn1(x)  # Apply batch normalization
-        # x = self.relu(x)
-        
-        # x = self.linear2(torch.cat([x, temb[1]], dim=1))
-        # x = self.bn2(x)  # Apply batch normalization
-        # x = self.relu(x)
-        
-        # x = self.linear3(torch.cat([x, temb[0]], dim=1))
-        # # x = self.bn3(x)  # Apply batch normalization
-        # # x = self.relu(x)
-
-
         temb = [self.temb[i](t)[:, :] for i in range(3)]
         c = c.to(torch.float32)
 
@@ -170,10 +154,8 @@ class Autoencoder(nn.Module):
         x = self.relu(x)
         
         x = self.linear3(torch.cat([x, temb[0]], dim=1))  # No skip connection needed here
-
-        return x
         
-        # return x
+        return x
     
 
     
@@ -207,7 +189,7 @@ def ddpm_schedules(beta1, beta2, n_T):
 
 
 class DDPM(nn.Module):
-    def __init__(self, nn_model, betas, n_T, device, drop_prob = 0.1):
+    def __init__(self, nn_model, betas, n_T, device):
         super().__init__()
         self.nn_model = nn_model.to(device)
 
@@ -233,7 +215,6 @@ class DDPM(nn.Module):
         # This is the xt, which is sqrt(alphabar) x_0 + sqrt(1-alphabar) * eps
         # We should predict the "error term" from this xt. Loss is what we return.
 
-        # dropout context with some probability
         # 0 represent mask
 
         # return MSE between added noise, and our predicted noise
@@ -252,10 +233,6 @@ class DDPM(nn.Module):
             ts = torch.tensor([i / self.n_T]).to(device)
             ts = ts.repeat(batch * n_sample,)
             z=torch.randn(xt.shape).to(device) if i > 1 else 0
-            print(xt.shape)
-            # print(z.shape)
-            print(ts.shape)
-            # split predictions and compute weighting
             eps = self.nn_model(xt, c, ts)
             xt = (
                 self.oneover_sqrta[i] * (xt - eps * self.mab_over_sqrtmab[i])

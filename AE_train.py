@@ -11,7 +11,6 @@ from datasets import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--device', type=int, default=0, help='device')
-parser.add_argument('--dataname', type=str, default='carl')
 parser.add_argument('--view', type=int, default=2)
 args = parser.parse_args()
 
@@ -22,22 +21,24 @@ print(f"PyTorch version: {torch.__version__}")
 
 device = f'cuda:{args.device}'
 print(torch.cuda.is_available())
-dataname = args.dataname
 view = args.view
 
 n_epoch = 500
 lrate = 1e-4
 
-def process_data(dataname='carl', view=2):
+def process_data(view=0):
     if view == 0:
-        data = io.loadmat(f"./metagenomics_data.mat")
+        data = io.loadmat(f"./Input_data/metagenomics_data.mat")
+        x = data['metagenomics_X']
     elif view == 1:
-        data = io.loadmat(f"./metabolomics_data.mat")
+        data = io.loadmat(f"./Input_data/metabolomics_data.mat")
+        x = data['metabolomics_X']
     elif view == 2:
-        data = io.loadmat(f"./metatranscriptomics_data.mat")
+        data = io.loadmat(f"./Input_data/metatranscriptomics_data.mat")
+        x = data['metatranscriptomics_X']
 
-    available_omics = io.loadmat(f"./available_omics.mat")['available_omics']
-    x = data['metatranscriptomics_X']
+    available_omics = io.loadmat(f"./Input_data/available_omics.mat")['available_omics']
+    
     mask = torch.tensor(available_omics)
     
     ind_train = mask[:, view] == 1
@@ -60,7 +61,7 @@ def process_data(dataname='carl', view=2):
     
     return train_dataloader, val_dataloader, test_dataloader
 
-train_dataloader, val_dataloader, test_dataloader = process_data(dataname=dataname, view=view)
+train_dataloader, val_dataloader, test_dataloader = process_data(view=view)
 
 for batch in train_dataloader:
     x_batch = batch[0]  # Extract the first item in the batch tuple, which is x_train_tensor
@@ -94,7 +95,7 @@ for ep in range(n_epoch):
         pbar.set_description(f"loss: {loss_ema:.4f}")
         optim.step()
     if (ep + 1) % 100 == 0:
-        torch.save(net.state_dict(), f"./models/AE_{dataname}_view{view}_ep{ep+1}.pth")
+        torch.save(net.state_dict(), f"./models/AE_view{view}_ep{ep+1}.pth")
 
         # Validation step
         net.eval()  # evaluation mode
